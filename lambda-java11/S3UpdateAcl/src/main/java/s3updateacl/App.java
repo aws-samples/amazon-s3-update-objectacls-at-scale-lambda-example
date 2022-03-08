@@ -8,6 +8,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.amazonaws.AmazonServiceException;
+import com.amazonaws.SdkClientException;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.S3BatchEvent;
@@ -31,6 +33,8 @@ public class App implements RequestHandler<S3BatchEvent, Object> {
 
         LambdaLogger logger = context.getLogger();
         String invocationId = null, invocationSchemaVersion = null, canonicalID = null,  taskId = null;
+        Result result = null;
+        List<Result> results = null;
 
         try {
             invocationId = s3BatchEvent.getInvocationId();
@@ -72,13 +76,28 @@ public class App implements RequestHandler<S3BatchEvent, Object> {
             // Save the modified ACL back to the object.
             s3Client.setObjectAcl(bucketName, s3Key, acl);
 
-            Result result = new Result(taskId, ResultCode.Succeeded, "Successfully updated") ;
-            List<Result> results = new ArrayList<Result>();
+            result = new Result(taskId, ResultCode.Succeeded, "Successfully updated") ;
+            results = new ArrayList<Result>();
             results.add(result);
             return new S3BatchResponse(invocationSchemaVersion, ResultCode.Succeeded, invocationId, results);
-        } catch (Exception e) {
-            Result result = new Result(taskId, ResultCode.PermanentFailure, "Failed to update " + e.getMessage());
-            List<Result> results = new ArrayList<Result>();
+        }catch(IllegalStateException hte) {//Mark as temporary failure so that it can be retried in the next run by fixing any config issues
+            result = new Result(taskId, ResultCode.TemporaryFailure, "Failed to update " + hte.getMessage());
+            results = new ArrayList<Result>();
+            results.add(result);
+            return new S3BatchResponse(invocationSchemaVersion, ResultCode.PermanentFailure, invocationId, results);
+        }catch(AmazonServiceException ase) {
+            result = new Result(taskId, ResultCode.TemporaryFailure, "Failed to update " + ase.getMessage());
+            results = new ArrayList<Result>();
+            results.add(result);
+            return new S3BatchResponse(invocationSchemaVersion, ResultCode.PermanentFailure, invocationId, results);
+        }catch(SdkClientException sce) {
+            result = new Result(taskId, ResultCode.TemporaryFailure, "Failed to update " + sce.getMessage());
+            results = new ArrayList<Result>();
+            results.add(result);
+            return new S3BatchResponse(invocationSchemaVersion, ResultCode.PermanentFailure, invocationId, results);
+        }catch (Exception e) {//Anything else, mark as permanent failure
+            result = new Result(taskId, ResultCode.PermanentFailure, "Failed to update " + e.getMessage());
+            results = new ArrayList<Result>();
             results.add(result);
             return new S3BatchResponse(invocationSchemaVersion, ResultCode.PermanentFailure, invocationId, results);
         }
