@@ -1,0 +1,52 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Stack to update S3 Object ACLs at scale
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 20
+
+Resources:
+  S3UpdateAcl:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: S3UpdateAcl
+      Handler: s3updateacl.App::handleRequest
+      Runtime: java11
+      MemorySize: 512
+      Environment: # More info about Env Vars: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#environment-object
+        Variables:
+          CanonicalID: !Ref CanonicalID
+          Permission: !Ref Permission
+      Events:
+        S3UpdateAclEvent:
+          Type: S3
+          Properties:
+            Bucket: !Ref SrcBucket
+            Events: s3:ObjectCreated:*
+      Policies:
+        Statement:
+          Sid: S3UpdateS3ObjectACLPolicy
+          Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:GetObjectAcl
+            - s3:PutObjectAcl
+          Resource: '*'
+  SrcBucket:
+    Type: AWS::S3::Bucket 
+Parameters:
+  CanonicalID:
+    Type: String
+    AllowedPattern: "[a-zA-Z0-9]{64,96}"
+  Permission:
+    Type: String
+    Default: FULL_CONTROL
+    AllowedValues:
+      - READ_ACP
+      - WRITE_ACP
+      - READ
+      - WRITE
+      - FULL_CONTROL

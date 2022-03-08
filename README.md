@@ -1,11 +1,8 @@
-## My Project
+## Update Amazon S3 Object ACLs at scale
 
-TODO: Fill this README out!
+This repo consist of lambda samples developed in Java and Python that builders can leverage to update S3 Object ACLs at scale. This [blog](https://blog_link) covers the detail steps of configuring the lambdas in S3 Batch Operations.
 
-Be sure to:
-
-* Change the title in this README
-* Edit your repository description on GitHub
+**Note:** The code is just a reference and is not production ready, please modify the code as per your need.
 
 ## Security
 
